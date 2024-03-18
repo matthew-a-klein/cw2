@@ -17,7 +17,7 @@
 # The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
-# Pieter Abbeel (pabbeel@cs.berkeley.edu).
+# Pieter Abbeel (pabbeel@cs.berkeley.edu). print(self.q_values)
 
 # This template was originally adapted to KCL by Simon Parsons, but then
 # revised and updated to Py3 for the 2022 course by Dylan Cope and Lin Li
@@ -26,6 +26,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import random
+import math
 
 from pacman import Directions, GameState
 from pacman_utils.game import Agent
@@ -33,6 +34,7 @@ from pacman_utils import util
 
 
 class GameStateFeatures:
+    
     """
     Wrapper class around a game state where you can extract
     useful information for your Q-learning algorithm
@@ -40,15 +42,43 @@ class GameStateFeatures:
     WARNING: We will use this class to test your code, but the functionality
     of this class will not be tested itself
     """
-
     def __init__(self, state: GameState):
+        self.state = state
+
         """
         Args:
             state: A given game state object
         """
+        
 
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+    def __eq__(self, other):
+        """
+        Compare two GameStateFeatures objects for equality.
+
+        Args:
+            other: Another object to compare with.
+
+        Returns:
+            bool: True if both objects are equal, False otherwise.
+        """
+        if not isinstance(other, GameStateFeatures):
+            # If the other object is not of the same type, they can't be equal
+            return False
+
+        # Compare the states of the two objects
+        return self.state == other.state
+    
+    def __hash__(self):
+        """
+        Return a hash value for the GameStateFeatures object.
+
+        Returns:
+            int: Hash value for the object.
+        """
+        # Hash the state attribute
+        return hash(self.state)
+
+
 
 
 class QLearnAgent(Agent):
@@ -79,6 +109,11 @@ class QLearnAgent(Agent):
         self.gamma = float(gamma)
         self.maxAttempts = int(maxAttempts)
         self.numTraining = int(numTraining)
+        self.prevState = []
+        self.prevAction = []
+        self.score = 0 
+        self.q_values = util.Counter()
+        # self.visits = {}
         # Count the number of games we have played
         self.episodesSoFar = 0
 
@@ -121,10 +156,8 @@ class QLearnAgent(Agent):
         Returns:
             The reward assigned for the given trajectory
         """
-        "*** YOUR CODE HERE ***"
-        if endState.isWin():
-            return 5
-        return -1
+        return endState.getScore() - startState.getScore()
+        
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -139,8 +172,10 @@ class QLearnAgent(Agent):
         Returns:
             Q(state, action)
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return self.q_values[(state,action)]
+
+        
+       
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -152,9 +187,12 @@ class QLearnAgent(Agent):
         Returns:
             q_value: the maximum estimated Q-value attainable from the state
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
+        q_values = [self.getQValue(state, a) for a in state.state.getLegalPacmanActions()]
+        if len(q_values) == 0:
+            return 0
+        return max(q_values)
+       
+    
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
     def learn(self,
@@ -165,14 +203,16 @@ class QLearnAgent(Agent):
         """
         Performs a Q-learning update
 
-        Args:
+        Args: print(self.q_values)
             state: the initial state
             action: the action that was taken
             nextState: the resulting state
             reward: the reward received on this trajectory
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        q = self.getQValue(state,action)
+        self.q_values[(state,action)] = q + self.alpha*(reward + self.gamma*self.maxQValue(nextState) - q)
+        print( self.q_values[(state,action)])
+
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -186,8 +226,8 @@ class QLearnAgent(Agent):
             state: Starting state
             action: Action taken
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        visits = self.visits[(state, action)]
+        self.visits[(state, action)] = visits + 1
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -202,8 +242,7 @@ class QLearnAgent(Agent):
         Returns:
             Number of times that the action has been taken in a given state
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return self.visits[(state, action)]
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -226,6 +265,27 @@ class QLearnAgent(Agent):
         "*** YOUR CODE HERE ***"
         util.raiseNotDefined()
 
+        # return the action maximises Q of state
+    def getBestAction(self, state):
+        legal = state.state.getLegalPacmanActions()
+        # in the first half of training, the agent is forced not to stop
+        # or turn back while not being chased by the ghost
+        if self.getEpisodesSoFar()*1.0/self.getNumTraining()<0.5:
+            if Directions.STOP in legal:
+                legal.remove(Directions.STOP)
+            if len(self.prevAction) > 0:
+                last_action = self.prevAction[-1]
+                distance0 = state.state.getPacmanPosition()[0]- state.state.getGhostPosition(1)[0]
+                distance1 = state.state.getPacmanPosition()[1]- state.state.getGhostPosition(1)[1]
+                if math.sqrt(distance0**2 + distance1**2) > 2:
+                    if (Directions.REVERSE[last_action] in legal) and len(legal)>1:
+                        legal.remove(Directions.REVERSE[last_action])
+        tmp = util.Counter()
+        for action in legal:
+            tmp[action] = self.getQValue(state.state, action)
+            print(tmp)
+        return tmp.argMax()
+
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
     def getAction(self, state: GameState) -> Directions:
@@ -244,22 +304,36 @@ class QLearnAgent(Agent):
         """
         # The data we have about the state of the game
         legal = state.getLegalPacmanActions()
+        stateFeatures = GameStateFeatures(state)
         if Directions.STOP in legal:
             legal.remove(Directions.STOP)
-
+            
+        reward = state.getScore() - self.score
+        if len(self.prevState) > 0:
+            last_state = self.prevState[-1]
+            last_action = self.prevAction[-1]
+            self.learn(last_state, last_action, reward, stateFeatures)
         # logging to help you understand the inputs, feel free to remove
-        print("Legal moves: ", legal)
-        print("Pacman position: ", state.getPacmanPosition())
-        print("Ghost positions:", state.getGhostPositions())
-        print("Food locations: ")
-        print(state.getFood())
-        print("Score: ", state.getScore())
+        # print("Legal moves: ", legal)
+        # print("Pacman position: ", state.getPacmanPosition())
+        # print("Ghost positions:", state.getGhostPositions())
+        # print("Food locations: ")
+        # print(state.getFood())
+        # print("Score: ", state.getScore())
 
-        stateFeatures = GameStateFeatures(state)
+        # stateFeatures = GameStateFeatures(state)
+        if util.flipCoin(self.epsilon):
+            action =  random.choice(legal)
+        else:
+            action = self.getBestAction(stateFeatures)
+            
+        # update attributes
+        self.score = state.getScore()
+        self.prevState.append(state)
+        self.prevAction.append(action)
 
         # Now pick what action to take.
-        # The current code shows how to do that but just makes the choice randomly.
-        return random.choice(legal)
+        return action
 
     def final(self, state: GameState):
         """
@@ -269,8 +343,17 @@ class QLearnAgent(Agent):
         Args:
             state: the final game state
         """
+        # update Q-values
+        reward = state.getScore()-self.score
+        last_state = self.prevState[-1]
+        last_action = self.prevAction[-1]
+        self.learn(last_state, last_action, reward, GameStateFeatures(state))
+        # reset attributes
+        self.score = 0
+        self.prevState = []
+        self.prevAction = []
         print(f"Game {self.getEpisodesSoFar()} just ended!")
-
+        # print(self.q_values)
         # Keep track of the number of games played, and set learning
         # parameters to zero when we are done with the pre-set number
         # of training episodes
@@ -278,5 +361,6 @@ class QLearnAgent(Agent):
         if self.getEpisodesSoFar() == self.getNumTraining():
             msg = 'Training Done (turning off epsilon and alpha)'
             print('%s\n%s' % (msg, '-' * len(msg)))
+            print(self.q_values)
             self.setAlpha(0)
             self.setEpsilon(0)

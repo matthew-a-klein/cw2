@@ -26,7 +26,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import random
-import math
 
 from pacman import Directions, GameState
 from pacman_utils.game import Agent
@@ -108,7 +107,9 @@ class QLearnAgent(Agent):
         self.prevState = []
         self.prevAction = []
         self.score = 0 
+        # Record the state values
         self.q_values = util.Counter()
+        # Record the times we have taken a particular action in each state
         self.visits = util.Counter()
         # Count the number of games we have played
         self.episodesSoFar = 0
@@ -170,9 +171,6 @@ class QLearnAgent(Agent):
         """
         return self.q_values[(state,action)]
 
-        
-       
-
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
     def maxQValue(self, state: GameStateFeatures) -> float:
@@ -184,10 +182,7 @@ class QLearnAgent(Agent):
             q_value: the maximum estimated Q-value attainable from the state
         """
         q_values = [self.getQValue(state, a) for a in state.state.getLegalPacmanActions()]
-        if len(q_values) == 0:
-            return 0
-        return max(q_values)
-       
+        return max(q_values, default=0)
     
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -257,10 +252,21 @@ class QLearnAgent(Agent):
             The exploration value
         """
         "*** YOUR CODE HERE ***"
+        # Perform greed-pick and ignore the number of times we have done
+        # the action before
         return utility 
 
         # return the action maximises Q of state
     def getBestAction(self, state):
+        """
+        Get the action that maximises the exploration function
+        In practice, this is  the action that maximises reward
+        Args:
+            state: the current state
+
+        Returns:
+            The best action to take
+        """
         legal = state.state.getLegalPacmanActions()
         tmp = util.Counter()
         for action in legal:

@@ -17,7 +17,7 @@
 # The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
-# Pieter Abbeel (pabbeel@cs.berkeley.edu). print(self.q_values)
+# Pieter Abbeel (pabbeel@cs.berkeley.edu). 
 
 # This template was originally adapted to KCL by Simon Parsons, but then
 # revised and updated to Py3 for the 2022 course by Dylan Cope and Lin Li
@@ -61,12 +61,8 @@ class GameStateFeatures:
         Returns:
             bool: True if both objects are equal, False otherwise.
         """
-        if not isinstance(other, GameStateFeatures):
-            # If the other object is not of the same type, they can't be equal
-            return False
-
-        # Compare the states of the two objects
-        return self.state == other.state
+        return self.__hash__() == other.__hash__()
+        
     
     def __hash__(self):
         """
@@ -76,7 +72,7 @@ class GameStateFeatures:
             int: Hash value for the object.
         """
         # Hash the state attribute
-        return hash(self.state)
+        return self.state.__hash__()
 
 
 
@@ -113,7 +109,7 @@ class QLearnAgent(Agent):
         self.prevAction = []
         self.score = 0 
         self.q_values = util.Counter()
-        # self.visits = {}
+        self.visits = util.Counter()
         # Count the number of games we have played
         self.episodesSoFar = 0
 
@@ -211,8 +207,6 @@ class QLearnAgent(Agent):
         """
         q = self.getQValue(state,action)
         self.q_values[(state,action)] = q + self.alpha*(reward + self.gamma*self.maxQValue(nextState) - q)
-        print( self.q_values[(state,action)])
-
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -263,27 +257,14 @@ class QLearnAgent(Agent):
             The exploration value
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return utility 
 
         # return the action maximises Q of state
     def getBestAction(self, state):
         legal = state.state.getLegalPacmanActions()
-        # in the first half of training, the agent is forced not to stop
-        # or turn back while not being chased by the ghost
-        if self.getEpisodesSoFar()*1.0/self.getNumTraining()<0.5:
-            if Directions.STOP in legal:
-                legal.remove(Directions.STOP)
-            if len(self.prevAction) > 0:
-                last_action = self.prevAction[-1]
-                distance0 = state.state.getPacmanPosition()[0]- state.state.getGhostPosition(1)[0]
-                distance1 = state.state.getPacmanPosition()[1]- state.state.getGhostPosition(1)[1]
-                if math.sqrt(distance0**2 + distance1**2) > 2:
-                    if (Directions.REVERSE[last_action] in legal) and len(legal)>1:
-                        legal.remove(Directions.REVERSE[last_action])
         tmp = util.Counter()
         for action in legal:
-            tmp[action] = self.getQValue(state.state, action)
-            print(tmp)
+            tmp[action] = self.explorationFn(self.getQValue(state, action), self.visits[(state, action)])
         return tmp.argMax()
 
     # WARNING: You will be tested on the functionality of this method
@@ -305,31 +286,22 @@ class QLearnAgent(Agent):
         # The data we have about the state of the game
         legal = state.getLegalPacmanActions()
         stateFeatures = GameStateFeatures(state)
-        if Directions.STOP in legal:
-            legal.remove(Directions.STOP)
-            
+
         reward = state.getScore() - self.score
         if len(self.prevState) > 0:
             last_state = self.prevState[-1]
             last_action = self.prevAction[-1]
             self.learn(last_state, last_action, reward, stateFeatures)
-        # logging to help you understand the inputs, feel free to remove
-        # print("Legal moves: ", legal)
-        # print("Pacman position: ", state.getPacmanPosition())
-        # print("Ghost positions:", state.getGhostPositions())
-        # print("Food locations: ")
-        # print(state.getFood())
-        # print("Score: ", state.getScore())
-
-        # stateFeatures = GameStateFeatures(state)
+            
+        # Pick the best action with probability 1 - epsilon
         if util.flipCoin(self.epsilon):
             action =  random.choice(legal)
         else:
             action = self.getBestAction(stateFeatures)
-            
+        self.updateCount(stateFeatures, action)   
         # update attributes
         self.score = state.getScore()
-        self.prevState.append(state)
+        self.prevState.append(stateFeatures)
         self.prevAction.append(action)
 
         # Now pick what action to take.
@@ -353,7 +325,7 @@ class QLearnAgent(Agent):
         self.prevState = []
         self.prevAction = []
         print(f"Game {self.getEpisodesSoFar()} just ended!")
-        # print(self.q_values)
+        
         # Keep track of the number of games played, and set learning
         # parameters to zero when we are done with the pre-set number
         # of training episodes
@@ -361,6 +333,5 @@ class QLearnAgent(Agent):
         if self.getEpisodesSoFar() == self.getNumTraining():
             msg = 'Training Done (turning off epsilon and alpha)'
             print('%s\n%s' % (msg, '-' * len(msg)))
-            print(self.q_values)
             self.setAlpha(0)
             self.setEpsilon(0)
